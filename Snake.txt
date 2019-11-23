@@ -1,0 +1,283 @@
+
+import java.awt.*;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
+import java.util.Random;
+
+import javax.swing.*;
+
+@SuppressWarnings("serial")
+public class Snake extends JPanel {
+	
+	
+	private static final int UPDATE_RATE = 200; //in milliseconds, = 0.25 (250) seconds of sleep
+	
+	//snake
+	private static final int RADIUS = 15;
+	private ArrayList<Integer> snakeBodyX = new ArrayList<Integer>();
+	private ArrayList<Integer> snakeBodyY = new ArrayList<Integer>();
+	
+	private ArrayList<Integer> oldSnakeBodyX = new ArrayList<Integer>();
+	private ArrayList<Integer> oldSnakeBodyY = new ArrayList<Integer>();
+	
+	private int speed = RADIUS * 2;
+	private int speedX = 0;
+	private int speedY = 0;
+	
+	//fruit
+	private static final int FRUIT_RADIUS = RADIUS;
+	private Random fruitCoordinates = new Random();
+	private int fruitX[] = new int[2]; //{fruit 1, fruit 2}
+	private int fruitY[] = new int[2]; //{fruit 1, fruit 2}
+	
+	private boolean firstRun = true;
+	private boolean end = false;
+	
+	
+	JTextArea inputText; //for arrow key movement
+	int arrowKeyPressed; //1 = up, 2 = down, 3 = left, 4 = right
+	
+	//BOX SIZE
+	//(0,0) is in the top left corner, goes positive as it goes right and down
+	private static final int BOX_WIDTH = (RADIUS * 2) * 32;
+	private static final int BOX_HEIGHT = (RADIUS * 2) * 32;
+	
+	
+	public Snake() {
+		setPreferredSize(new Dimension(BOX_WIDTH, BOX_HEIGHT));
+		inputText = new JTextArea();
+		add(inputText, BorderLayout.NORTH);
+		
+		//Original SNAKE SIZE
+		snakeBodyX.add((BOX_WIDTH / 2));
+		
+		snakeBodyY.add(BOX_HEIGHT / 2);
+		
+
+		
+		Thread gameThread = new Thread() {
+			public void run() {				
+				while (true) {					
+					
+					//program ends
+					if(end) {
+						repaint();
+						break;
+					} //program ends when the snake hits the wall
+					  else if(snakeBodyX.get(0) >= (BOX_WIDTH - (RADIUS * 2)) || (snakeBodyX.get(0) <= 0)) { //head hits the right side or left side (in that order)
+						end = true;
+						repaint();
+						break;
+					} else if(snakeBodyY.get(0) >= (BOX_HEIGHT - (RADIUS * 2)) || (snakeBodyY.get(0) <= 0)) { //head hits the bottom or top (in that order)
+						end = true;
+						repaint();
+						break;
+					}
+					
+					
+					
+					//SNAKE STUFF
+					
+					
+					//arrow key movement
+					inputText.addKeyListener(new KeyListener() {
+						public void keyPressed(KeyEvent e) {
+							int i = e.getKeyCode();
+							if(i == KeyEvent.VK_UP) {
+								arrowKeyPressed = 1;
+							} else if(i == KeyEvent.VK_DOWN) {
+								arrowKeyPressed = 2;
+							} else if(i == KeyEvent.VK_LEFT) {
+								arrowKeyPressed = 3;
+							} else if(i == KeyEvent.VK_RIGHT) {
+								arrowKeyPressed = 4;
+							}
+							
+						}
+						@Override
+						public void keyReleased(KeyEvent e) {
+							
+						}
+						@Override
+						public void keyTyped(KeyEvent e) {
+
+						}
+					});
+					
+					
+					//change speed based on arrow keys pressed
+					switch(arrowKeyPressed) {
+						case 1: //up
+							speedX = 0; //resets speed in the X direction
+							speedY = 0 - speed;
+							break;
+						case 2: //down
+							speedX = 0; //resets speed in the X direction
+							speedY = speed;
+							break;
+						case 3: //left
+							speedY = 0; //resets speed in the Y direction
+							speedX = 0 - speed;
+							break;
+						case 4: //right
+							speedY = 0; //resets speed in the Y direction
+							speedX = speed;
+							break;
+					}
+					
+					
+					oldSnakeBodyX.clear(); // empty the arraylist
+					oldSnakeBodyY.clear(); //empty the arraylist
+					
+					//copy current snake body onto old snake body
+					for(int pixel = 0; pixel < snakeBodyX.size(); pixel++) {
+						oldSnakeBodyX.add(snakeBodyX.get(pixel).intValue()); //get the int value of the Integers so that they refer to different objects
+						oldSnakeBodyY.add(snakeBodyY.get(pixel).intValue());
+					}
+
+					
+					//move the snake		
+					snakeBodyX.add(0, snakeBodyX.get(0) + speedX); //inserts a new head value in the arraylist
+					snakeBodyX.remove(snakeBodyX.size() - 1); //deletes the last head value
+					
+					snakeBodyY.add(0, snakeBodyY.get(0) + speedY); //inserts a new head value in the arraylist
+					snakeBodyY.remove(snakeBodyY.size() - 1); //deletes the last head value
+					
+									
+					
+					//if head hits other part of snake
+					
+					//have to type cast the objects in the arraylist as ints because even if two objects have the same value, they are not ==
+					if(speedX != 0 || speedY != 0) {
+						for(int bodyLocation = 0; bodyLocation < snakeBodyX.size(); bodyLocation++) {
+							if(((int)snakeBodyX.get(0) == (int)oldSnakeBodyX.get(bodyLocation)) && ((int)snakeBodyY.get(0) == (int)oldSnakeBodyY.get(bodyLocation))) {
+								end = true;
+							}
+						}
+					}
+					
+					
+					
+					
+					//FRUIT STUFF
+					
+					//spawn the first fruits
+					if(firstRun) {
+						
+						fruitX[0] = ((fruitCoordinates.nextInt(30) + 1) * (RADIUS * 2)); //EXPLANATION: The Box Height divided by 30 is 32. I want the random number to go from 1 to 30 and then multiply it by 30
+						fruitY[0] = ((fruitCoordinates.nextInt(30) + 1) * (RADIUS * 2)); //to make sure that the head will be able to be in that location. If the random number went up to 32
+						 																 //then the fruit would go off the board, since the top left corner of the fruit is its coordinates. 
+																						 //I also do not want the fruit on the edge because it's basically impossible to get the fruits on the edge
+						
+						do {
+							fruitX[1] = ((fruitCoordinates.nextInt(30) + 1) * (RADIUS * 2));
+							fruitY[1] = ((fruitCoordinates.nextInt(30) + 1) * (RADIUS * 2));
+						} while((fruitX[0] == fruitX[1]) && (fruitY[0] == fruitY[1]));
+						
+						firstRun = false;
+					}
+					
+					
+					//if fruit is eaten
+					if((snakeBodyX.get(0) == fruitX[0] && snakeBodyY.get(0) == fruitY[0]) || (snakeBodyX.get(0) == fruitX[1] && snakeBodyY.get(0) == fruitY[1])) { //(if the head is at the same coordinates as fruit 1) OR (if the head is at the same coordinates as fruit 2)
+						
+						//expand snake
+						snakeBodyX.add(snakeBodyX.get(snakeBodyX.size() - 1));
+						snakeBodyY.add(snakeBodyY.get(snakeBodyY.size() - 1));
+						
+						//replace that fruit
+						//fruit 1
+						if((snakeBodyX.get(0) == fruitX[0] && snakeBodyY.get(0) == fruitY[0])) { //if fruit 1 is eaten
+							do {
+								fruitX[0] = ((fruitCoordinates.nextInt(30) + 1) * (RADIUS * 2));
+								fruitY[0] = ((fruitCoordinates.nextInt(30) + 1) * (RADIUS * 2));
+							} while((fruitX[0] == fruitX[1] && fruitY[0] == fruitY[1])); //replaces if the new fruit is at the same location as the other one
+						}
+						
+						//fruit 2
+						if((snakeBodyX.get(0) == fruitX[1] && snakeBodyY.get(0) == fruitY[1])) { //if fruit 2 is eaten
+							do {
+								fruitX[1] = ((fruitCoordinates.nextInt(30) + 1) * (RADIUS * 2));
+								fruitY[1] = ((fruitCoordinates.nextInt(30) + 1) * (RADIUS * 2));
+							} while((fruitX[0] == fruitX[1] && fruitY[0] == fruitY[1])); //replaces if the new fruit is at the same location as the other one
+						}
+					}
+					
+					
+					//redraw
+					repaint();
+		            
+					//update
+					try {
+		            	TimeUnit.MILLISECONDS.sleep(UPDATE_RATE);
+		            } catch (InterruptedException ex) { }
+					
+				}
+		   }
+		};
+		
+		gameThread.start();
+	}
+	
+	public void paintComponent(Graphics g) {
+		super.paintComponent(g);
+
+		g.setColor(Color.WHITE);
+		g.fillRect(0, 0, BOX_WIDTH, BOX_HEIGHT);
+		
+		//make border
+		g.setColor(Color.RED);
+		g.drawRect(0, 0, BOX_WIDTH, BOX_HEIGHT);
+		
+		//draw fruit
+		g.setColor(Color.BLUE);
+		for(int i = 0; i < 2; i++) {
+			g.fillOval(fruitX[i], fruitY[i], (FRUIT_RADIUS * 2), (FRUIT_RADIUS * 2));
+		}
+		
+		//draw snake with a green body
+		g.setColor(Color.GREEN);
+		for(int pixel = snakeBodyX.size() - 1; pixel >= 0; pixel--) {
+			if(pixel == 0) {
+				g.setColor(Color.RED); //changes the head of the snake to red
+			}
+			g.fillRect(snakeBodyX.get(pixel), snakeBodyY.get(pixel), (RADIUS * 2), (RADIUS * 2));
+		}
+		
+		//when head hits wall
+		if(end == true) {
+			//pause
+			try {
+            	TimeUnit.MILLISECONDS.sleep(UPDATE_RATE * 2);
+            } catch (InterruptedException ex) { }
+			
+			//reset screen
+			g.setColor(Color.WHITE);
+			g.fillRect(0, 0, BOX_WIDTH, BOX_HEIGHT);
+			
+			
+			//displays "GAME OVER"
+			g.setColor(Color.RED); //font color
+		    g.setFont(new Font("Consolas", Font.PLAIN, 175)); //font size
+		    final String GAME_OVER = "GAME OVER";
+		    g.drawString(GAME_OVER, 30, (BOX_HEIGHT / 2));
+
+		}
+	}
+
+	
+	public static void main(String[] args) {
+		javax.swing.SwingUtilities.invokeLater(new Runnable() {
+			public void run() {
+				JFrame frame = new JFrame();
+				frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+				frame.setContentPane(new Snake());
+				frame.pack();
+				frame.setVisible(true);
+			}
+		});
+	}
+	
+}
